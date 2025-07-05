@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{ Serialize, Deserialize };
 use uuid::Uuid;
 use chrono::{NaiveDate, DateTime, Utc};
 
@@ -29,4 +29,11 @@ pub struct SymptomLog {
     pub logged_at: NaiveDate,
     pub symptom_type: String,
     pub intensity: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteSymptomRequest {
+    pub user_id: String,
+    pub logged_at: String, // or chrono::NaiveDate
+    pub symptom_type: String,
 }
