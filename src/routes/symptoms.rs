@@ -39,15 +39,31 @@ async fn delete_symptom(
     State(pool): State<PgPool>,
     Json(payload): Json<DeleteSymptomRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
+    tracing::info!("🧠 /symptom/delete called");
+
     let user_id = match Uuid::parse_str(&payload.user_id) {
-        Ok(uuid) => uuid,
-        Err(_) => return Err((StatusCode::BAD_REQUEST, "Invalid user_id UUID".into())),
+        Ok(uuid) => {
+            tracing::info!("✅ Parsed user_id: {}", uuid);
+            uuid
+        },
+        Err(e) => {
+            tracing::info!("❌ Failed to parse user_id: {:?}", e);
+            return Err((StatusCode::BAD_REQUEST, "Invalid user_id UUID".into()));
+        },
     };
 
     let logged_at = match NaiveDate::parse_from_str(&payload.logged_at, "%Y-%m-%d") {
-        Ok(date) => date,
-        Err(_) => return Err((StatusCode::BAD_REQUEST, "Invalid date format (expected YYYY-MM-DD)".into())),
+        Ok(date) => {
+            tracing::info!("✅ Parsed logged_at: {}", date);
+            date
+        },
+        Err(e) => {
+            tracing::info!("❌ Failed to parse date: {:?}", e);
+            return Err((StatusCode::BAD_REQUEST, "Invalid date format (expected YYYY-MM-DD)".into()));
+        },
     };
+
+   tracing::info!("🔎 Attempting DELETE for user_id={}, date={}, type={}", user_id, logged_at, payload.symptom_type);
 
     let result = sqlx::query!(
         "DELETE FROM symptom_logs WHERE user_id = $1 AND logged_at::date = $2 AND symptom_type = $3",
@@ -59,10 +75,16 @@ async fn delete_symptom(
     .await;
 
     match result {
-        Ok(r) if r.rows_affected() > 0 => Ok(StatusCode::NO_CONTENT),
-        Ok(_) => Err((StatusCode::NOT_FOUND, "No symptom found".into())),
+        Ok(r) => {
+            tracing::info!("🗑️ Rows affected: {}", r.rows_affected());
+            if r.rows_affected() > 0 {
+                Ok(StatusCode::NO_CONTENT)
+            } else {
+                Err((StatusCode::NOT_FOUND, "No symptom found".into()))
+            }
+        }
         Err(e) => {
-            eprintln!("❌ DB error: {:?}", e);
+            tracing::info!("❌ SQL error: {:?}", e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, "DB error".into()))
         }
     }

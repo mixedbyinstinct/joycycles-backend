@@ -31,9 +31,27 @@ pub struct SymptomLog {
     pub intensity: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DeleteSymptomRequest {
     pub user_id: String,
     pub logged_at: String, // or chrono::NaiveDate
     pub symptom_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BleedingHistoryRequest {
+    pub user_id: Uuid,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BleedingCycle {
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub days: Vec<BleedingDay>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BleedingDay {
+    pub date: NaiveDate,
+    pub intensity: String,
 }

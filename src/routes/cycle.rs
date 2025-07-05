@@ -74,7 +74,7 @@ async fn get_cycle_summary(
     };
 
     let today = chrono::Utc::now().naive_utc().date();
-    let cycle_day = (today - cycle.start_date).num_days() + 1;
+    let cycle_day = (today - cycle.start_date).num_days();
 
     let fertile = cycle.start_date + chrono::Duration::days(12)..=cycle.start_date + chrono::Duration::days(16);
     let period_expected_in_days = 26 - cycle_day;
