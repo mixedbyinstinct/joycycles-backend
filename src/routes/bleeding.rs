@@ -14,7 +14,7 @@ pub async fn get_bleeding_history(
     State(pool): State<PgPool>,
     Query(params): Query<BleedingHistoryRequest>,
 ) -> Result<Json<Vec<BleedingCycle>>, (axum::http::StatusCode, String)> {
-    let rows = sqlx::query!(
+    let mut rows = sqlx::query!(
         "SELECT logged_at::date as date, intensity
          FROM symptom_logs
          WHERE user_id = $1 AND symptom_type = 'bleeding'
@@ -28,43 +28,45 @@ pub async fn get_bleeding_history(
         (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "DB error".into())
     })?;
 
+    // Sort rows just in case (paranoia — even though the SQL query already orders them)
+    rows.sort_by_key(|r| r.date);
+
     let mut grouped: Vec<BleedingCycle> = vec![];
     let mut current_cycle: Vec<BleedingDay> = vec![];
 
-    for (i, row) in rows.iter().enumerate() {
-        let date = row.date;
-        let intensity = row.intensity.clone().unwrap_or_default();
-    
-        let is_start = i == 0;
-        let prev_date = rows.get(i.wrapping_sub(1)).map(|r| r.date);
-        let gap = prev_date.map(|d| date.signed_duration_since(d).num_days());
-    
-        if is_start || gap == Some(1) {
-            current_cycle.push(BleedingDay { date, intensity });
-        } else {
-            if !current_cycle.is_empty() {
-                let first = current_cycle.first().unwrap().date;
-                let last = current_cycle.last().unwrap().date;
-                grouped.push(BleedingCycle {
-                    start_date: first,
-                    end_date: last,
-                    days: current_cycle.drain(..).collect(),
-                });
-            }
-            current_cycle.push(BleedingDay { date, intensity });
-        }
-    }
-    
+    let mut prev_date_opt: Option<NaiveDate> = None;
 
+    for row in rows {
+        let date = row.date;
+        let intensity = row.intensity.unwrap_or_else(|| "".to_string());
+
+        match prev_date_opt {
+            Some(prev_date) if (date - prev_date).num_days() > 1 => {
+                // gap detected — finalize current cycle
+                if !current_cycle.is_empty() {
+                    grouped.push(BleedingCycle {
+                        start_date: current_cycle.first().unwrap().date,
+                        end_date: current_cycle.last().unwrap().date,
+                        days: current_cycle.drain(..).collect(),
+                    });
+                }
+            }
+            _ => {} // no gap, continue adding to current cycle
+        }
+
+        current_cycle.push(BleedingDay { date, intensity });
+        prev_date_opt = Some(date);
+    }
+
+    // Push final cycle
     if !current_cycle.is_empty() {
-        let first = current_cycle.first().unwrap().date;
-        let last = current_cycle.last().unwrap().date;
         grouped.push(BleedingCycle {
-            start_date: first,
-            end_date: last,
+            start_date: current_cycle.first().unwrap().date,
+            end_date: current_cycle.last().unwrap().date,
             days: current_cycle,
         });
     }
 
     Ok(Json(grouped))
 }
+
