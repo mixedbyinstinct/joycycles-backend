@@ -41,8 +41,8 @@ pub async fn get_bleeding_history(
         let intensity = row.intensity.unwrap_or_else(|| "".to_string());
 
         match prev_date_opt {
-            Some(prev_date) if (date - prev_date).num_days() > 1 => {
-                // gap detected — finalize current cycle
+            Some(prev_date) if (date - prev_date).num_days() > 2 => {
+                // ⚠️ If gap is more than 2 days, start new cycle
                 if !current_cycle.is_empty() {
                     grouped.push(BleedingCycle {
                         start_date: current_cycle.first().unwrap().date,
@@ -51,8 +51,9 @@ pub async fn get_bleeding_history(
                     });
                 }
             }
-            _ => {} // no gap, continue adding to current cycle
+            _ => {} // ≤ 2 day gap is still same cycle
         }
+        
 
         current_cycle.push(BleedingDay { date, intensity });
         prev_date_opt = Some(date);

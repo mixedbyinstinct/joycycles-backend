@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
         .merge(routes::cycle::routes(pool.clone()))
         .merge(routes::symptoms::routes(pool.clone()))
         .merge(routes::bleeding::routes(pool.clone()))
+        .merge(routes::cycle_stats::routes(pool.clone()))
         .route("/health", get(|| async { "✅ Backend up" }));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3050));
